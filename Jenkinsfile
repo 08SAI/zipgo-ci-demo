@@ -3,19 +3,49 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        // Jenkins will automatically checkout pipeline scm
         checkout scm
       }
     }
+
     stage('List files') {
       steps {
-        sh 'ls -la'
+        script {
+          if (isUnix()) {
+            sh 'ls -la'
+          } else {
+            bat 'dir'
+          }
+        }
       }
     }
+
     stage('Run ZipGo script') {
       steps {
-        sh './zipgo.sh'
+        script {
+          if (isUnix()) {
+            // make sure script is executable, then run it
+            sh 'chmod +x zipgo.sh || true'
+            sh './zipgo.sh'
+          } else {
+            // Prefer a Windows batch file if available. If not, try to run bash if installed.
+            // We'll run zipgo.bat if present; otherwise attempt bash (Git Bash) as fallback.
+            bat '''
+            if exist zipgo.bat (
+                echo Running zipgo.bat
+                zipgo.bat
+            ) else (
+                echo zipgo.bat not found, attempting to run via bash (requires Git Bash)
+                bash zipgo.sh
+            )
+            '''
+          }
+        }
       }
+    }
+  }
+  post {
+    always {
+      echo "Pipeline finished with result: ${currentBuild.currentResult}"
     }
   }
 }
